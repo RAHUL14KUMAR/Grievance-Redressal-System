@@ -85,7 +85,48 @@ const register=async(req,res)=>{
     }
 }
 
+const login=async(req,res)=>{
+    try{
+        const {email,password}=req.body;
+
+        if (!email || !password) {
+            res.status(400);
+            throw new Error("Enter all details");
+        }
+
+        const userExists=await client.query(
+            `SELECT * FROM users WHERE email=$1`,[email]
+        );
+
+        if (userExists.rows.length === 0) {
+            res.status(400);
+            throw new Error("User does not Exists");
+        }
+
+        const isMatch = await bcrypt.compare(password, userExists.rows[0].password);
+
+        if (!isMatch) {
+            res.status(400);
+            throw new Error("Invalid credentials");
+        }
+
+        res.json({
+            id:userExists.rows[0].id,
+            name:userExists.rows[0].name,
+            email:userExists.rows[0].email,
+            adharCardNumber:userExists.rows[0].adharcardnumber,
+            role:userExists.rows[0].role,
+            token:generateJwt(userExists.rows[0].id)
+        })
+
+    }catch(error){
+        console.log("get error from login user",error);
+        res.status(500).json({error:error});
+    }
+}
+
 module.exports = {
     createUserTable,
-    register
+    register,
+    login
 }
