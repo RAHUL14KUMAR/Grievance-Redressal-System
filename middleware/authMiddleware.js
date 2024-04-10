@@ -11,7 +11,7 @@ const protect=async(req,res,next)=>{
             return res.status(401).json({message:"Not authorized to access this route"});
         }
         const decoded=jwt.verify(token,process.env.JWT_SECRET);
-        const user=await client.query(`SELECT * FROM users WHERE user_id=$1`,[decoded.id]);
+        const user=await client.query(`SELECT * FROM users WHERE id=$1`,[decoded.id]);
         if(user.rows.length===0){
             return res.status(404).json({message:"No user found with this id"});
         }

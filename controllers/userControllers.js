@@ -129,7 +129,30 @@ const login=async(req,res)=>{
 const adminAddOfficer=async(req,res)=>{
     try{
         const {role}=req.user;
-        res.status(200).json(role)
+        const { name, email, password, adharCardNumber } = req.body;
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPass = await bcrypt.hash(password, salt);
+
+        if(role!=='admin'){
+            res.status(400);
+            throw new Error("Only Admin can add officer");
+        }else{
+            const users=await client.query(
+                `insert into users (name,email,password,adharCardNumber,role) values ($1,$2,$3,$4,$5)`,[name,email,hashedPass,adharCardNumber,'officer']
+            )
+
+            const a=await client.query(`SELECT * FROM users WHERE email=$1`,[email]);
+
+            res.json({
+                id:a.rows[0].id,
+                name:a.rows[0].name,
+                email:a.rows[0].email,
+                adharCardNumber:a.rows[0].adharcardnumber,
+                role:a.rows[0].role,
+                token:generateJwt(a.rows[0].id)
+            });
+        }
 
     }catch(error){
         console.log("get error from add officer",error);
