@@ -125,8 +125,21 @@ const login=async(req,res)=>{
     }
 }
 
+// admin can add new officer || nodal-officer
+const adminAddOfficer=async(req,res)=>{
+    try{
+        const {role}=req.user;
+        res.status(200).json(role)
+
+    }catch(error){
+        console.log("get error from add officer",error);
+        res.status(500).json({error:error});
+    }
+}
+
 module.exports = {
     createUserTable,
     register,
-    login
+    login,
+    adminAddOfficer
 }
