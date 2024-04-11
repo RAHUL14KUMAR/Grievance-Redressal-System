@@ -47,6 +47,30 @@ const createComplaintTable = async (req, res) => {
         res.status(500).json({error:error});
     }
 }
+
+// complaint create by users/citizen
+const createComplaint=async(req,res)=>{
+    try{
+        const {email,role}=req.user;
+        const {description,image,department,district}=req.body;
+
+        if(role!=="citizen"){
+            res.status(400);
+            throw new Error("Not authorized to create complaint");
+        }else{
+            const create=await client.query(
+                `INSERT INTO complaints(raisedBy,description,image,department,district) VALUES($1,$2,$3,$4,$5)`,[email,description,image,department,district]
+            );
+            console.log("create complaint",create);
+            res.status(200).json({message:"Complaint created"}); 
+        
+        }
+    }catch(error){
+        console.log("get error from create complaint",error);
+        res.status(500).json({error:error});
+    }
+}
 module.exports={
-    createComplaintTable
+    createComplaintTable,
+    createComplaint
 }
