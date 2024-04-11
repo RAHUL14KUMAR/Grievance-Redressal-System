@@ -193,10 +193,33 @@ const putDesignation=async(req,res)=>{
     }
 }
 
+// see all the user whose role is officer
+const allOfficersInAdminDashboard=async(req,res)=>{
+    try{
+        const {role}=req.user;
+        if(role!=='admin'){
+            res.status(400);
+            throw new Error("Only Admin can see all officer");
+        }else{
+            const officers=await client.query(
+                `SELECT * FROM users WHERE role=$1`,['officer']
+            )
+
+            res.status(200).json({officers:officers.rows});
+        }
+
+    }catch(error){
+        console.log("get error from all officer in admin dashboard",error);
+        res.status(500).json({error:error});
+    
+    }
+}
+
 module.exports = {
     createUserTable,
     register,
     login,
     adminAddOfficer,
-    putDesignation
+    putDesignation,
+    allOfficersInAdminDashboard
 }
