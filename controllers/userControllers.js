@@ -1,6 +1,7 @@
 const client=require('../database/db');
 const jwt=require('jsonwebtoken');
 const bcrypt=require('bcryptjs');
+const { post } = require('../routes/userRoutes');
 
 const createUserTable = async (req, res) => {
     try{
@@ -160,9 +161,42 @@ const adminAddOfficer=async(req,res)=>{
     }
 }
 
+// admin now put designation of the officer
+const putDesignation=async(req,res)=>{
+    try{
+        const {post,dist,dept,email}=req.body;
+        const {role}=req.user;
+
+        const officer=await client.query(`
+            SELECT * FROM users WHERE email=$1
+        `,[email]);
+
+        if(officer.rows.length===0){
+            res.status(400);
+            throw new Error("Officer not found");
+        }else if(officer.rows.length>0 && role==="admin"){
+            const officerDetails=await client.query(
+                `insert into officers (post,dist,dept) values ($1,$2,$3)`,[post,dist,dept]
+            )
+
+            const a=await client.query(`select count(officer_id) from officers`)
+            await client.query(`
+                UPDATE users SET designation=$1 WHERE email=$2
+            `,[a.rows[0].count,email]);
+
+            res.status(200).json({message:"designation added successfully"});
+        }
+
+    }catch(error){
+        console.log("get error from put designation",error);
+        res.status(500).json({error:error});
+    }
+}
+
 module.exports = {
     createUserTable,
     register,
     login,
-    adminAddOfficer
+    adminAddOfficer,
+    putDesignation
 }
