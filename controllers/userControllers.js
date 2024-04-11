@@ -215,11 +215,46 @@ const allOfficersInAdminDashboard=async(req,res)=>{
     }
 }
 
+// we can updtae the designation of the officer in to empty object
+const changeDesignation=async(req,res)=>{
+    try{
+        const {email}=req.body;
+        const {role}=req.user;
+
+        const officer=await client.query(`
+            SELECT * FROM users WHERE email=$1
+        `,[email]);
+
+        if(officer.rows.length===0){
+            res.status(400);
+            throw new Error("Officer not found");
+        }else if(officer.rows.length>0 && role==="admin"){
+            const id=officer.rows[0].designation;
+
+            console.log("id",id)
+            await client.query(`
+                UPDATE users SET designation=$1 WHERE email=$2
+            `,[null,email]);
+
+            await client.query(`
+                DELETE FROM officers WHERE officer_id=$1
+            `,[id]);
+
+            res.status(200).json({message:"designation removed successfully"});
+        }
+
+    }catch(error){
+        console.log("get error from change designation",error);
+        res.status(500).json({error:error});
+    }
+}
+
 module.exports = {
     createUserTable,
     register,
     login,
     adminAddOfficer,
     putDesignation,
-    allOfficersInAdminDashboard
+    allOfficersInAdminDashboard,
+    changeDesignation
 }
