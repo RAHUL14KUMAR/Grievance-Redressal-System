@@ -1,4 +1,5 @@
 const client=require('../database/db');
+const { get } = require('../routes/userRoutes');
 
 const createComplaintTable = async (req, res) => {
     try{
@@ -6,21 +7,25 @@ const createComplaintTable = async (req, res) => {
             `
             CREATE TABLE nodal (
                 nodal_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                complaint_id INT,
                 assignedDept VARCHAR(255),
                 assignedDist VARCHAR(255),
                 assignedPost VARCHAR(255),
                 markDone CHAR(1) DEFAULT 'N' CHECK (markDone IN ('Y', 'N'))
-              );
+                foreign key (complaint_key) references complaints(c_id)
+               );
             `
         )
 
         console.log("Complaint NODAL Table created");
 
         await client.query(
-            `CREATE TABLE comments (
+            `create table comments(
                 comment_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-                commentText VARCHAR(1000),
-                commentBy VARCHAR(255)
+                complaint_id INT,
+                comment_text VARCHAR(255),
+                comment_by VARCHAR(255),
+                foreign key (complaint_id) REFERENCES complaints(c_id)
             );`
         )
         console.log("comment table created");
@@ -33,9 +38,7 @@ const createComplaintTable = async (req, res) => {
                 image varchar(100),
                 department varchar(100),
                 district varchar(100),
-                pathToTravel nodal[],
                 descriptionByNodalOfficer varchar(100),
-                addComments comments[],
                 status varchar(100) default 'UN-RESOLVED' CHECK (STATUS IN ('PARTIALLY-RESOLVED', 'RESOLVED', 'UN-RESOLVED'))
             )`
         )
@@ -70,7 +73,166 @@ const createComplaint=async(req,res)=>{
         res.status(500).json({error:error});
     }
 }
+
+// complaint seen vy citizen/nodal officer
+const getComplaint=async(req,res)=>{
+    try{
+        const{designation,role,email}=req.user;
+
+        console.log(role,designation)
+        if(role==='citizen'){
+            const get=await client.query(
+                `SELECT * FROM complaints WHERE raisedBy=$1`,[email]
+            );
+            res.status(200).json({complaints:get.rows});
+        }else if(role==="officer"){
+            const getPost=await client.query(`
+            SELECT * FROM officers WHERE officer_id=$1`,[designation]);
+
+            if(getPost.rows[0].post==='nodal officer'){
+                const get=await client.query(
+                    `SELECT * FROM complaints WHERE district=$1 and department=$2`,
+                    [
+                        getPost.rows[0].dist,
+                        getPost.rows[0].dept
+                    ]
+                );
+                console.log("get complaint",get);
+                res.status(200).json({complaints:get.rows});
+            }
+        }else{
+
+        }
+
+    }catch(error){
+        console.log("get error from get complaint",error);
+        res.status(500).json({error:error});
+    }
+}
+
+// nodal officer can add descriptiton on particular complaint
+
+const addNodalDescription=async(req,res)=>{
+    try{
+        const complainId=req.params.id;
+        const {designation}=req.user;
+        const {description}=req.body;
+
+        const getPost=await client.query(`
+            SELECT * FROM officers WHERE officer_id=$1`,[designation]
+        );
+
+        if(getPost.rows[0].post==='nodal officer'){
+            const add=await client.query(
+                `UPDATE complaints SET descriptionByNodalOfficer=$1 WHERE c_id=$2`,[description,complainId]
+            );
+            res.status(200).json({message:"Description added successfully"});
+        }
+
+    }catch(error){
+        console.log("get error from add nodal description",error);
+        res.status(500).json({error:error});
+    }
+}
+
+// add pathToTravel and description of particular complaint done byNodalOfficer
+const addNodeToPath=async(req,res)=>{
+    try{
+        const complainId=req.params.id;
+        const {designation}=req.user;
+        const {department,post,district}=req.body;
+
+        const complain=await client.query(`
+            SELECT * FROM complaints WHERE c_id=$1`,[complainId]
+        );
+        
+        const officers=await client.query(`
+            SELECT * FROM officers WHERE OFFICER_ID=$1`,[designation]
+        );
+
+        if(officers.rows[0].post==='nodal officer' && complain.rows.length>0){
+            const add = await client.query(`
+                INSERT INTO nodal(complaint_id,assignedDept,assignedDist,assignedPost) VALUES($1,$2,$3,$4)`,[complainId,department,district,post]
+            );
+            res.status(200).json({message:"Path added successfully"});
+        }
+
+    }catch(error){
+        console.log("get error from add node to path",error);
+        res.status(500).json({error:error});
+    }
+}
+
+// can see the complaint path that takes to travel
+const seePathToTravel=async(req,res)=>{
+    try{
+        const complainId=req.params.id;
+        const get=await client.query(`
+            SELECT * FROM nodal WHERE complaint_id=$1`,[complainId]
+        );
+        res.status(200).json({path:get.rows});
+
+    }catch(error){
+        console.log("get error from see path to travel",error);
+        res.status(500).json({error:error});
+    }
+}
+
+
+// add comments on particular complaint
+const addCommentsOnparticularComplaint=async(req,res)=>{
+    try{
+        const complainId=req.params.id;
+        const {name}=req.user;
+        const {comment}=req.body;
+
+        const complain=await client.query(`
+            SELECT * FROM complaints WHERE c_id=$1`,[complainId]
+        );
+
+        if(complain.rows.length>0){
+            const add=await client.query(`
+                INSERT INTO comments(complaint_id,comment_text,comment_by) VALUES($1,$2,$3)`,[complainId,comment,name]
+            );
+            res.status(200).json({message:"Comment added successfully"});
+        }
+
+    }catch(error){
+        console.log("get error from add comments on particular complaint",error);
+        res.status(500).json({error:error});
+    }
+}
+
+// complaint which is assigned to a particular officer can update the status of their own process completion
+const markAsDone=async(req,res)=>{
+    try{
+
+    }catch(error){
+        console.log("get error from mark as done",error);
+        res.status(500).json({error:error});
+    }
+}
+
+
+// get all comments on particular complaint
+const getAllCommentOnParticularComplaint=async(req,res)=>{
+    try{
+        const complainId=req.params.id;
+        const get=await client.query(`
+            SELECT * FROM comments WHERE complaint_id=$1`,[complainId]
+        );
+        res.status(200).json({comments:get.rows});
+
+    }catch(error){
+        console.log("get error from get all comments on particular complaint",error);
+        res.status(500).json({error:error});
+    }
+}
 module.exports={
     createComplaintTable,
-    createComplaint
+    createComplaint,
+    getComplaint,
+    addNodalDescription,
+    addNodeToPath,
+    addCommentsOnparticularComplaint,getAllCommentOnParticularComplaint,seePathToTravel
 }
