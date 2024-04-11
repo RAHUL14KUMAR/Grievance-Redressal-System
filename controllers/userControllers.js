@@ -1,7 +1,6 @@
 const client=require('../database/db');
 const jwt=require('jsonwebtoken');
 const bcrypt=require('bcryptjs');
-const { post } = require('../routes/userRoutes');
 
 const createUserTable = async (req, res) => {
     try{
