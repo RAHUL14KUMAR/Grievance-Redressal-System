@@ -204,8 +204,45 @@ const addCommentsOnparticularComplaint=async(req,res)=>{
 }
 
 // complaint which is assigned to a particular officer can update the status of their own process completion
-const markAsDone=async(req,res)=>{
+const markAsDoneByAssignedOfficers=async(req,res)=>{
     try{
+        const complainId=req.params.id;
+        const {designation,role}=req.user;
+
+        const officers=await client.query(`
+            SELECT * FROM officers WHERE officer_id=$1`,[designation]
+        )
+
+        const complain=await client.query(`
+            SELECT * FROM complaints WHERE c_id=$1`,[complainId]
+        )
+        
+        if(complain.rows.length>0 && role==='officer'){
+            const res=await client.query(`
+                select * from nodal where complaint_id=$1`,[complainId]
+            )
+
+            const pathToTravel=res.rows.map((node)=>{
+                if(node.assignedPost===officers.rows[0].post && node.assignedDept===officers.rows[0].dept && node.assignedDist===officers.rows[0].dist){
+                    node.markDone='Y';   
+                }
+                return node;
+            })
+
+            let cnt=0;
+            pathToTravel.forEach((node)=>{
+                if(node.markDone==='Y'){
+                    cnt++;
+                }
+            })
+
+            if(cnt===pathToTravel.length){
+                const update=await client.query(`
+                    UPDATE complaints SET status='PARTIALLY-RESOLVED' WHERE c_id=$1`,[complainId]
+                );
+            }
+            res.status(200).json({message:"Marked as done by assigned officers"});
+        }
 
     }catch(error){
         console.log("get error from mark as done",error);
@@ -228,11 +265,41 @@ const getAllCommentOnParticularComplaint=async(req,res)=>{
         res.status(500).json({error:error});
     }
 }
+
+// user mark complaint stsus resolved finally
+const userMarkedComplaintStatus=async(req,res)=>{
+    try{
+        const complainId=req.params.id;
+        const {role}=req.user;
+
+        if(role==='citizen'){
+            const prev_status=await client.query(`
+                SELECT * FROM complaints WHERE c_id=$1`,[complainId]
+            );
+
+            if(prev_status.rows[0].status==='PARTIALLY-RESOLVED'){
+                const update=await client.query(`
+                    UPDATE complaints SET status='RESOLVED' WHERE c_id=$1`,[complainId]
+                );
+
+                res.status(200).json({message:"Complaint resolved"});
+            }else{
+                res.status(400).json({message:"Complaint is not resolved yet"});
+            }
+        }
+
+    }catch(error){
+        console.log("get error from user marked complaint status",error);
+        res.status(500).json({error:error});
+    }
+}
 module.exports={
     createComplaintTable,
     createComplaint,
     getComplaint,
     addNodalDescription,
     addNodeToPath,
-    addCommentsOnparticularComplaint,getAllCommentOnParticularComplaint,seePathToTravel
+    addCommentsOnparticularComplaint,getAllCommentOnParticularComplaint,seePathToTravel,
+    userMarkedComplaintStatus,
+    markAsDoneByAssignedOfficers
 }
