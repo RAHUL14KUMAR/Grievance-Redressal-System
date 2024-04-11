@@ -1,10 +1,14 @@
 const express = require("express");
-
-const { createDepartmentTable } = require("../controllers/departmentControllers");
+const {protect} = require("../middleware/authMiddleware");
+const { createDepartmentTable, sellAllDepartmentDistrictwise, createDepartment } = require("../controllers/departmentControllers");
 
 
 const router = express.Router();
 
 router.get('/createTable', createDepartmentTable);
+router.get('/allDepartmentDistrictwise',protect,sellAllDepartmentDistrictwise)
+
+router.post('/createDepartment',protect,createDepartment)
+
 
 module.exports=router;
